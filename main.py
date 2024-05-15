@@ -10,5 +10,5 @@ from stock.base import USStock
 
 if __name__ == "__main__":
     stretegy = USStock("usa")
-    # stretegy.run()
-    stretegy.strategy_aggresive()
+    stretegy.run()
+    # stretegy.strategy_aggresive2()

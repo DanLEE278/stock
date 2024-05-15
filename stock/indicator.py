@@ -18,20 +18,14 @@ def buystrength(opinion: pd.DataFrame)-> tuple[dict,bool]:
     return buy_strength
 
 # EPS Growth -> returns Yearly EPS
-def eps_growth(income_stmt: list)-> tuple[dict,bool]:
+def eps_growth(income_stmt: list)-> dict:
     eps = {}
     if len(income_stmt.columns) != 0:
         for item in income_stmt.columns: 
-            eps.update({item: income_stmt[item]['Basic EPS']})
-            
-        # year1 = int(income_stmt['2023-12-31']['Basic EPS'])
-        # year2 = int(income_stmt['2022-12-31']['Basic EPS'])
-        # year3 = int(income_stmt['2021-12-31']['Basic EPS'])
-        # eps.update({"2023": year1})
-        # eps.update({"2022": year2})
-        # eps.update({"2021": year3})
-    else:
-        return False
-
+            try:
+                eps.update({item: income_stmt[item]['Basic EPS']})
+            except:
+                pass
+    return eps
 # Moving Average
 # def moving(average):

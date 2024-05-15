@@ -1,1 +1,0 @@
-from .moving_line import avg_move_line

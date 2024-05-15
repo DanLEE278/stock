@@ -7,6 +7,7 @@ import pandas as pd
 import FinanceDataReader as fdr
 import yfinance as yf
 from tqdm import tqdm
+from matplotlib import pyplot as plt
 
 # CUSTOM MODULE
 from .indicator import buystrength, eps_growth
@@ -43,12 +44,14 @@ class USStock(Stock):
         super().__init__(country)
     
     def run(self):
-        with Pool(processes=6) as pool:
-            pool.starmap(self.strategy_aggresive2, zip(self.stocks['Symbol'], list(range(0,len(self.stocks['Symbol'])))))
+        for x,y in zip(self.stocks['Symbol'], list(range(0,len(self.stocks['Symbol'])))):
+            self.strategy_aggresive2(x,y)
+        
+        # with Pool(processes=10) as pool:
+        #     pool.starmap(self.strategy_aggresive2, zip(self.stocks['Symbol'], list(range(0,len(self.stocks['Symbol'])))))
     
     def strategy_aggresive2(self, code, idx):
-        
-        print(code)
+        code ="TCBS"
         name = mapping(code)
         stockinfo = yf.Ticker(name)
         stock = stockinfo.history(period="11y")
@@ -121,7 +124,7 @@ class USStock(Stock):
 
         # con 5) 200 trending line at rising phase for at least 1 month
         for idx in range(66):
-            if not(stock['200_avg_moving'][len(stock['200_avg_moving']) - 1 - idx] >= stock['200_avg_moving'][len(stock['200_avg_moving']) -2 -idx]):
+            if not(stock['200_avg_moving'][len(stock['200_avg_moving'])-1-idx] >= stock['200_avg_moving'][len(stock['200_avg_moving']) -2 -idx]):
                 return 0
 
         # con 6) current price within  +- 30% of 52 week high
@@ -129,11 +132,40 @@ class USStock(Stock):
             return 0
 
         # con 7) cuurent price >= 52 week low * 0.7
-        if not(low_52 * 1.3 <= stock['Close'].iloc[-1]):
+        if not(low_52 * 1.3 <= stock['Close'].iloc[-1] <= low_52 * 1.5):
             return 0
         
-        # print(code)
-        file.write(f"{name}\n")
+        data = stock['Close'][-260*2:]
+        plt.plot(data, color='red', linewidth=2)
+        plt.title(f'{code} Performance')
+        plt.ylabel('Price ($)')
+        plt.xlabel('Date')
+        
+        import pdb
+        pdb.set_trace()
+        
+        positions = [(0,y+0.5) for y in range(len(eps)+len(bstrength))]
+
+
+        # for idx,x in enumerate(eps):
+        #     text = plt.text(
+        #         positions[idx][0],
+        #         positions[idx][1],
+        #         f'{x} {eps[x]}', 
+        #         horizontalalignment='center', wrap=True)
+
+        # for idx,x in enumerate(bstrength):
+        #     text = plt.text(
+        #         positions[idx+len(eps)][0], 
+        #         positions[idx+len(eps)][1], 
+        #         f'{x} {bstrength[x]}', 
+        #         horizontalalignment='center', wrap=True)
+        
+        plt.tight_layout(rect=(0,.05,1,1)) 
+        plt.savefig(f"result/{code}.png")
+        print(code)
+        print(eps)
+        print(bstrength)
     
     def strategy_aggresive(self):
         # for idx, code in tqdm(enumerate(self.stocks['Code'])):
@@ -151,9 +183,7 @@ class USStock(Stock):
                 if bstrength['0'] < 70 or bstrength['1'] < 70:
                     continue
             except:
-                import pdb
-                pdb.set_trace()
-                
+                print(name)
                 
             name = self.stocks.iloc[idx]['Name']
             stock['50_avg_moving'] = stock['Close'].rolling(window=50).mean()
