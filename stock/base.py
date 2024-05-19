@@ -10,7 +10,7 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 
 # CUSTOM MODULE
-from .indicator import buystrength, eps_growth
+from .indicator import buystrength, eps_growth, rsi
 from .utils import mapping
 
 import warnings
@@ -19,8 +19,8 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 # mother class
 class Stock:
     def __init__(self, country:str)-> None:
-       self.stocks = self._get_stock(country) # get stock symbols
-    
+        self.stocks, self.market = self._get_stock(country) # get stocks and market
+        
     # Return Stock lists
     def _get_stock(self, country:str) -> pd.DataFrame:
         country = country.lower()
@@ -28,11 +28,18 @@ class Stock:
             kospi = fdr.StockListing('KOSPI')
             kosdaq = fdr.StockListing('KOSDAQ')
             stocks = pd.concat([kospi, kosdaq])
+            kospi = fdr.DataReader('KS11') # KOSPI 지수 (KRX)
+            # kosdaq = fdr.DataReader('KQ11') # KOSDAQ 지수 (KRX)
+            market = kospi
         elif country == "usa" or "america":
+            # TODO: RSI should be calculated differently where the stock is included
             snp = fdr.StockListing('S&P500')
             nasdaq = fdr.StockListing('NASDAQ')
-            stocks = pd.concat([snp, nasdaq])            
-        return stocks
+            stocks = pd.concat([snp, nasdaq])
+            snp500 = yf.Ticker("^GSPC").history(period="1mo") # snp500 price data
+            # nasdaq = yf.Ticker("^IXIC").history(period="1mo") # nasdaq price data
+            market = snp500 # for now calculate the RSI solely by snp500 index
+        return stocks, market
     
     # get stock length
     def _get_total(self)-> int:
@@ -44,14 +51,14 @@ class USStock(Stock):
         super().__init__(country)
     
     def run(self):
-        for x,y in zip(self.stocks['Symbol'], list(range(0,len(self.stocks['Symbol'])))):
-            self.strategy_aggresive2(x,y)
-        
-        # with Pool(processes=10) as pool:
-        #     pool.starmap(self.strategy_aggresive2, zip(self.stocks['Symbol'], list(range(0,len(self.stocks['Symbol'])))))
+        if False:
+            with Pool(processes=10) as pool:
+                pool.starmap(self.strategy_aggresive, zip(self.stocks['Symbol'], list(range(0,len(self.stocks['Symbol'])))))
+        else:    
+            for x,y in zip(self.stocks['Symbol'], list(range(0,len(self.stocks['Symbol'])))):
+                self.strategy_aggresive(x,y)
     
-    def strategy_aggresive2(self, code, idx):
-        code ="TCBS"
+    def strategy_aggresive(self, code, idx):
         name = mapping(code)
         stockinfo = yf.Ticker(name)
         stock = stockinfo.history(period="11y")
@@ -61,7 +68,8 @@ class USStock(Stock):
         
         eps = eps_growth(stockinfo.income_stmt)
         bstrength = buystrength(stockinfo.recommendations)
-
+        rsi_strength = rsi(self.market, stock)
+        
         if len(bstrength) == 0:
             pass
         elif bstrength['0'] < 70 or bstrength['1'] < 70:
@@ -141,11 +149,7 @@ class USStock(Stock):
         plt.ylabel('Price ($)')
         plt.xlabel('Date')
         
-        import pdb
-        pdb.set_trace()
-        
         positions = [(0,y+0.5) for y in range(len(eps)+len(bstrength))]
-
 
         # for idx,x in enumerate(eps):
         #     text = plt.text(
@@ -166,94 +170,6 @@ class USStock(Stock):
         print(code)
         print(eps)
         print(bstrength)
-    
-    def strategy_aggresive(self):
-        # for idx, code in tqdm(enumerate(self.stocks['Code'])):
-        for idx, code in tqdm(enumerate(self.stocks['Symbol'][70:]), total=self._get_total()):
-            name = mapping(code)
-            stockinfo = yf.Ticker(name)
-            stock = stockinfo.history(period="11y")
-            
-            # if len(stock) == 0 or len(stock) > 2517*3:
-                # continue
-            
-            eps = eps_growth(stockinfo.income_stmt)
-            bstrength = buystrength(stockinfo.recommendations)
-            try: 
-                if bstrength['0'] < 70 or bstrength['1'] < 70:
-                    continue
-            except:
-                print(name)
-                
-            name = self.stocks.iloc[idx]['Name']
-            stock['50_avg_moving'] = stock['Close'].rolling(window=50).mean()
-            stock['120_avg_moving'] = stock['Close'].rolling(window=120).mean()
-            stock['150_avg_moving'] = stock['Close'].rolling(window=150).mean()
-            stock['200_avg_moving'] = stock['Close'].rolling(window=200).mean()
-            high_52 = stock['Close'][-260:].max() # 52 week high
-            low_52 = stock['Close'][-260:].min() # 52 week low 
-            file = open("result.txt", "w")
-
-            # con 0) skip if the compnay is more than 10 years or less than 6 month
-            if (len(stock['Close']) > 260 * 10) or (len(stock['Close']) < 130):
-                continue
-
-            # con 1) current price higher than 200 trending line
-            condition1 = stock['Close'] > stock['200_avg_moving']
-            
-            if True in condition1[-66:].value_counts().index:
-                if not(condition1[-66:].value_counts()[True] > 55):
-                    continue
-            else: continue
-
-            # con 2) current price higher thatn 150 trending line
-            condition2 = stock['Close'] > stock['150_avg_moving']
-            if True in condition2[-44:].value_counts().index:
-                if not(condition2[-44:].value_counts()[True] > 37):
-                    continue
-            else: continue
-                
-            # con 3) 150 trending line higher than 200 trending line
-            condition3 = stock['150_avg_moving'] > stock['200_avg_moving']
-            if True in condition3[-44:].value_counts().index:
-                if not(condition3[-44:].value_counts()[True] > 30):
-                    continue
-            else: continue
-
-            # con 4) 50 trending line higher than 200 & 150 trending line
-            condition4_1 = stock['50_avg_moving'] > stock['150_avg_moving']
-            if True in condition4_1[-44:].value_counts().index:
-                if not(condition4_1[-44:].value_counts()[True] > 35):
-                    continue
-            else: continue
-
-            condition4_2 = stock['50_avg_moving'] > stock['200_avg_moving']
-            if True in condition4_2[-66:].value_counts().index:
-                if not(condition4_2[-66:].value_counts()[True] > 55):
-                    continue
-            else: continue
-            
-            # con 5) current price higher than 50 avg moving line
-            condition5 = stock['Close'] > stock['50_avg_moving']
-            if True in condition5[-22:].value_counts().index:
-                if not(condition5[-22:].value_counts()[True] > 11):
-                    continue
-            else: continue
-
-            # con 5) 200 trending line at rising phase for at least 1 month
-            for idx in range(66):
-                if not(stock['200_avg_moving'][len(stock['200_avg_moving']) - 1 - idx] >= stock['200_avg_moving'][len(stock['200_avg_moving']) -2 -idx]):
-                    continue
-
-            # con 6) current price within  +- 30% of 52 week high
-            if not(high_52 * 0.7 <= stock['Close'].iloc[-1] <= high_52 * 1.3):
-                continue
-
-            # con 7) cuurent price >= 52 week low * 0.7
-            if not(low_52 * 1.3 <= stock['Close'].iloc[-1]):
-                continue
-                
-            file.write(f"{name}\n")
 
     def strategy_conservative(self):
         pass

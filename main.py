@@ -7,8 +7,10 @@ from tqdm import tqdm
 
 # CUSTOM MODULE
 from stock.base import USStock   
+from config import config
 
 if __name__ == "__main__":
+    
     stretegy = USStock("usa")
     stretegy.run()
     # stretegy.strategy_aggresive2()

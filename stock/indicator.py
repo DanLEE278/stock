@@ -1,9 +1,13 @@
 import pandas as pd
 
 # Relative Strength Index
-def rsi(price:list)-> float:
-    pass
-    rsi = 0
+def rsi(market: pd.DataFrame, stockprice:pd.DataFrame)-> tuple[dict,bool]:
+    # TODO: compare market performamce with individual stock price
+    # TODO: calculate rsi price index, select market and calculate recent rsi score
+    # TODO: is it worth coding for mid, long-term stock??
+    
+    import pdb
+    pdb.set_trace()
     return rsi
 
 # Expert Buy Opinion -> returns buy percentage
