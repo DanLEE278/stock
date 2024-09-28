@@ -20,6 +20,8 @@ wheels/
 *.egg 
 *.manifest 
 *.spec
+result/
+result.txt
 
 # Log files
 pip-log.txt
