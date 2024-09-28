@@ -10,7 +10,7 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 
 # CUSTOM MODULE
-from .indicator import buystrength, eps_growth, rsi
+from .indicator import buystrength, eps_growth, rmsi
 from .utils import mapping
 
 import warnings
@@ -51,7 +51,7 @@ class USStock(Stock):
         super().__init__(country)
     
     def run(self):
-        if False:
+        if True:
             with Pool(processes=10) as pool:
                 pool.starmap(self.strategy_aggresive, zip(self.stocks['Symbol'], list(range(0,len(self.stocks['Symbol'])))))
         else:    
@@ -60,15 +60,21 @@ class USStock(Stock):
     
     def strategy_aggresive(self, code, idx):
         name = mapping(code)
+        print(name)
         stockinfo = yf.Ticker(name)
-        stock = stockinfo.history(period="11y")
+        # import pdb
+        # pdb.set_trace()
+        stock = stockinfo.history(period="max")
         
-        # if len(stock) == 0 or len(stock) > 2517*3:
-            # continue
+        if len(stock) == 0 or len(stock) > 2517*3:
+            return 0
         
         eps = eps_growth(stockinfo.income_stmt)
         bstrength = buystrength(stockinfo.recommendations)
-        rsi_strength = rsi(self.market, stock)
+        rsi_strength = rmsi(self.market, stock)
+        
+        if rsi_strength > 15:
+            print("strong index", name)
         
         if len(bstrength) == 0:
             pass
